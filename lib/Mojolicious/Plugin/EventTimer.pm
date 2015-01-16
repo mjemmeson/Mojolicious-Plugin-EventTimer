@@ -1,66 +1,87 @@
 package Mojolicious::Plugin::EventTimer;
 
+our $VERSION = '0.01';
+
 use Mojo::Base 'Mojolicious::Plugin';
 
 use Mojo::EventTimer;
 
-our $VERSION = '0.01';
-
 sub register {
-    my ( $self, $app, $conf ) = @_;
+    my ( $self, $app, $args ) = @_;
 
-    use Data::Dumper::Concise;
-    warn Dumper($conf);
+    my $include_report = $args->{include_report};
+    my $json_key       = $args->{json_key} || 'timer';
+    my $stash_key      = $args->{stash_key} || 'timer';
 
-    my $param_name = $conf->{param_name} // 'include_timer';
-    my $stash_key  = $conf->{stash_key}  // 'timer';
+    $app->helper(
+        timer => sub {
+            my ( $c, $timer ) = @_;
+
+            return unless $c->can('req');    # do nothing if called from App
+
+            $c->req->{__timer} = $timer if $timer;    # if called as mutator
+
+            # return Mojo::EventTimer for current request
+            return $c->req->{__timer};
+        }
+    );
 
     my $request_timer = sub {
         my ( $next, $c, $action, $last ) = @_;
 
-        # ignores requests directly to HTML pages
-        if ( $c->stash('controller') ) {
+        # ignores requests directly to HTML page ('/' etc)
+        if ( $c->stash('action') ) {
 
-            $c->req->{__timer} = Mojo::EventTimer->new;
-            $c->req->{__timer}->record(
+            $c->timer( Mojo::EventTimer->new );
+            $c->timer->record(
                 sprintf( "%s#%s - started",
-                    $c->stash('controller'),
+                    $c->stash('controller') || $c->stash('namespace'),
                     $c->stash('action') )
             );
-            $c->stash( $stash_key => {} );
+
+warn $c->timer->report_text;
+
         }
 
         return $next->();
     };
 
-    my $include_timer_log = sub {
+    my $include_timer_total = sub {
         my ( $c, $args ) = @_;
 
-        # add to JSON - always add
-        if ( my $alter = $args->{json} ) {
+        $c->timer->record(
+            sprintf(
+                "%s#%s - finished",
+                $c->stash('controller') || $c->stash('namespace'),
+                $c->stash('action')
+            )
+        );
 
-            $alter->{$stash_key}->{total} = $c->req->{__timer}->total_time;
-
-            if ( $c->req->param($param_name) ) {
-                $alter->{$stash_key}->{log} = $c->req->{__timer}->report;
-            }
-
+        if ( $args->{json} ) {
+            $args->{json}->{$json_key}->{total} = $c->timer->total_time;
         } else {
-
-            if ( $c->req->param($param_name) ) {
-
-                $args->{$stash_key} = {
-                    total => $c->req->{__timer}->total_time,
-                    log   => $c->req->{__timer}->report_text,
-                };
-            }
+            $args->{$stash_key}->{total} = $c->timer->total_time;
         }
-
     };
 
-    # Create timer for requests
+    my $include_timer_report = sub {
+        my ( $c, $args ) = @_;
+
+        if ( $args->{json} ) {
+            $args->{json}->{$json_key}->{report} = $c->timer->report;
+        } else {
+            $args->{$stash_key}->{report} = $c->timer->report_text;
+        }
+    };
+
+    # Creates timer object
     $app->hook( around_action => $request_timer );
-    $app->hook( before_render => $include_timer_log );
+
+    # Adds total time
+    $app->hook( before_render => $include_timer_total );
+
+    # Adds full report
+    $app->hook( before_render => $include_timer_report ) if $include_report;
 
 }
 
@@ -76,25 +97,35 @@ Mojolicious::Plugin::EventTimer - Mojolicious plugin to provide simple event dur
 
 =head1 SYNOPSIS
 
-  use Mojolicious::Plugin::EventTimer;
+    $app->plugin(
+        "Mojolicious::Plugin::EventTimer",
+        {   json_key  => 'timer',    # default
+            stash_key => 'timer',    # default
+        }
+    );
 
 =head1 DESCRIPTION
 
-# TODO
+Mojolicious plugin to time events within a request. 
 
 =head1 AUTHOR
 
-Michael Jemmeson E<lt>mjemmeson@cpan.orgE<gt>
+=over
+
+=item Michael Jemmeson E<lt>mjemmeson@cpan.orgE<gt>
+
+=item Nigel Hamilton B<NIGE>
+
+=back
 
 =head1 COPYRIGHT
 
-Copyright 2014- Michael Jemmeson
+Copyright 2014- Broadbean Technology Ltd
 
 =head1 LICENSE
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
-=head1 SEE ALSO
-
 =cut
+
