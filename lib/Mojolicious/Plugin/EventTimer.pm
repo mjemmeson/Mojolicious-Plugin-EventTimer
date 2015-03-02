@@ -38,9 +38,6 @@ sub register {
                     $c->stash('controller') || $c->stash('namespace'),
                     $c->stash('action') )
             );
-
-warn $c->timer->report_text;
-
         }
 
         return $next->();
@@ -110,9 +107,11 @@ Mojolicious plugin to time events within a request.
 
 =head1 AUTHOR
 
-=over
+Michael Jemmeson E<lt>mjemmeson@cpan.orgE<gt>
 
-=item Michael Jemmeson E<lt>mjemmeson@cpan.orgE<gt>
+=head1 CONTRIBUTORS
+
+=over
 
 =item Nigel Hamilton B<NIGE>
 

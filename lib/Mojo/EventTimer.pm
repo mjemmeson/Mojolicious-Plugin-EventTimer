@@ -108,5 +108,26 @@ Returns total time elapsed.
 
 Clears the event log and restarts the timer.
 
+=head1 AUTHOR
+
+Nigel Hamilton B<NIGE>
+
+=head1 CONTRIBUTORS
+
+=over
+
+=item Michael Jemmeson E<lt>mjemmeson@cpan.orgE<gt>
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright 2014- Broadbean Technology Ltd
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
 =cut
 
